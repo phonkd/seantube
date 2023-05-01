@@ -8,15 +8,14 @@ from urllib.parse import urlparse
 from dotenv import load_dotenv
 load_dotenv()
 # Variables
-input_str = os.getenv("INPUT_STR")
+input_str = os.getenv("URL")
 audio = os.getenv("AUDIO")
 audio_format = os.getenv("AUDIO_FORMAT")
 video_format = os.getenv("VIDEO_FORMAT")
 
 
-
 # Commands
-video_cmd_url = "yt-dlp --recode-video " + video_format + " input_str"
+video_cmd_url = "yt-dlp --recode-video " + video_format + " " + input_str
 video_cmd_nourl = "yt-dlp --recode-video " + video_format + " ytsearch:" + '"' + input_str + '"'
 audio_cmd_url = "yt-dlp -x --audio-format " + audio_format + " " + input_str
 audio_cmd_nourl = "yt-dlp -x --audio-format " + audio_format + " ytsearch:" + '"' + input_str + '"'
