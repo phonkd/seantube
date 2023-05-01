@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"html/template"
+"bufio"
+"os"
 )
 
 type TemplateData struct {
@@ -47,63 +49,91 @@ func handler(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+
+
+
 func updateEnvHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	url := r.FormValue("URL")
-	if url == "" {
-		http.Error(w, "URL is required", http.StatusBadRequest)
-		return
-	}
-
-	// Read the .env file
-	content, err := ioutil.ReadFile(".env")
-	if err != nil {
-		http.Error(w, "Error reading .env file", http.StatusInternalServerError)
-		return
-	}
-
-	// Find and update the URL variable
-	varName := "URL"
-    	lines := strings.Split(string(content), "\n")
-    	updated := false
-    	for i, line := range lines {
-        	if strings.HasPrefix(line, varName+"=") {
-            	lines[i] = fmt.Sprintf("%s=\"%s\"", varName, url) // Add double quotes around the URL value
-            	updated = true
-            	break
-        	}
+    if r.Method != http.MethodPost {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
     }
 
-    // If the URL variable was not found, append it to the file
-    if !updated {
-        lines = append(lines, fmt.Sprintf("%s=\"%s\"", varName, url)) // Add double quotes around the URL value
+    url := r.FormValue("URL")
+    if url == "" {
+        http.Error(w, "URL is required", http.StatusBadRequest)
+        return
     }
 
-	// Write the updated content to the .env file
-	err = ioutil.WriteFile(".env", []byte(strings.Join(lines, "\n")), 0644)
-	if err != nil {
-		http.Error(w, "Error updating .env file", http.StatusInternalServerError)
-		return
-	}
+    err := updateEnvVariable("URL", url)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Updated .env file successfully")
-	// Run the Python script
-	cmd := exec.Command("python", "main.py")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error running Python script: %v\nOutput: %s", err, output), http.StatusInternalServerError)
-		return
-	}
+    cmd := exec.Command("python3", "your_script.py")
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    err = cmd.Run()
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
 
-	// Send the script output to the client
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Updated .env file successfully\n\nPython script output:\n%s", output)
+    fmt.Fprint(w, "Python script executed successfully")
 }
+
+func updateEnvVariable(variableName, variableValue string) error {
+    inputFile, err := os.Open(".env")
+    if err != nil {
+        return err
+    }
+    defer inputFile.Close()
+
+    outputFile, err := os.Create(".env_temp")
+    if err != nil {
+        return err
+    }
+    defer outputFile.Close()
+
+    scanner := bufio.NewScanner(inputFile)
+    updated := false
+
+    for scanner.Scan() {
+        line := scanner.Text()
+        if strings.HasPrefix(line, variableName+"=") {
+            _, err = outputFile.WriteString(variableName + "=" + variableValue + "\n")
+            updated = true
+        } else {
+            _, err = outputFile.WriteString(line + "\n")
+        }
+
+        if err != nil {
+            return err
+        }
+    }
+
+    if !updated {
+        _, err = outputFile.WriteString(variableName + "=" + variableValue + "\n")
+        if err != nil {
+            return err
+        }
+    }
+
+    err = inputFile.Close()
+    if err != nil {
+        return err
+    }
+
+    err = outputFile.Close()
+    if err != nil {
+        return err
+    }
+
+    return os.Rename(".env_temp", ".env")
+}
+
+
+
 
 
 func getFileNameWithPrefix(directoryPath string, prefix string) (string, error) {

@@ -46,5 +46,5 @@ else:
         print("Mode: Video with url")
         os.system(video_cmd_url)
         
-
+os.system("mv seantube_* temp/")
 
