@@ -17,15 +17,19 @@ import (
 func main() {
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/update-env", updateEnvHandler)
-
 	// Serve static files from the 'public' directory
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static", fs))
-
+	
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, post-check=0, pre-check=0")
+w.Header().Set("Pragma", "no-cache")
+w.Header().Set("Expires", "0")
+
+
 if r.URL.Path == "/" {
         tempDir := "static/temp"
         files, err := ioutil.ReadDir(tempDir)
@@ -111,20 +115,34 @@ func updateEnvHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error updating .env file", http.StatusInternalServerError)
 		return
 	}
+w.WriteHeader(http.StatusOK)
+    cmd := exec.Command("python", "main.py")
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        http.Error(w, fmt.Sprintf("Error running Python script: %v\nOutput: %s", err, output), http.StatusInternalServerError)
+        return
+    }
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Updated .env file successfully")
-	// Run the Python script
-	cmd := exec.Command("python", "main.py")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error running Python script: %v\nOutput: %s", err, output), http.StatusInternalServerError)
-		return
-	}
+fmt.Fprint(w, `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Updating Environment</title>
+</head>
+<body>
+    <h1>Updated .env file successfully</h1>
+    <pre>` + fmt.Sprintf("Python script output:\n%s", output) + `</pre>
+    <p>Redirecting to the home page in 10 seconds...</p>
+    <script>
+        setTimeout(function(){
+            window.location.href = "/";
+        }, 10000);
+    </script>
+</body>
+</html>
+`)
 
-	// Send the script output to the client
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Updated .env file successfully\n\nPython script output:\n%s", output)
 }
 
 
