@@ -4,8 +4,8 @@ import json
 import subprocess
 import glob
 from urllib.parse import urlparse
-load_dotenv()
 from dotenv import load_dotenv
+load_dotenv()
 # Variables
 input_str = os.getenv("INPUT_STR")
 audio = os.getenv("AUDIO")
