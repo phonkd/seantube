@@ -6,9 +6,9 @@ import glob
 from urllib.parse import urlparse
 # Variables
 input_str = "no tomorrow mc orsen"
-audio = True
+audio = False
 audio_format = "mp3"
-video_format = ""
+video_format = "mp4"
 
 # Commands
 video_cmd_url = "yt-dlp --format " + video_format + " input_str"
