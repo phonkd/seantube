@@ -9,4 +9,4 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 COPY . .
-ENTRYPOINT ["tail", "-f", "/dev/null"]
+CMD ["go", "run", "main.go"]
