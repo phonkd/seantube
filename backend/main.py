@@ -1,4 +1,5 @@
 import os
+import dotenv
 import base64
 import json
 import subprocess
@@ -11,6 +12,10 @@ input_str = os.getenv("INPUT_STR")
 audio = os.getenv("AUDIO")
 audio_format = os.getenv("AUDIO_FORMAT")
 video_format = os.getenv("VIDEO_FORMAT")
+print(input_str)
+print(audio)
+print(audio_format)
+print(video_format)
 
 
 # Commands
