@@ -4,11 +4,14 @@ import json
 import subprocess
 import glob
 from urllib.parse import urlparse
+load_dotenv()
+from dotenv import load_dotenv
 # Variables
-input_str = "no tomorrow mc orsen"
-audio = False
-audio_format = "mp3"
-video_format = "mp4"
+input_str = os.getenv("INPUT_STR")
+audio = os.getenv("AUDIO")
+audio_format = os.getenv("AUDIO_FORMAT")
+video_format = os.getenv("VIDEO_FORMAT")
+
 
 # Commands
 video_cmd_url = "yt-dlp --format " + video_format + " input_str"
