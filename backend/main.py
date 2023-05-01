@@ -20,8 +20,6 @@ video_cmd_nourl = "yt-dlp --recode-video " + video_format + " --output seantube_
 audio_cmd_url = "yt-dlp -x --audio-format " + audio_format + " --output seantube_download " + input_str
 audio_cmd_nourl = "yt-dlp -x --audio-format " + audio_format + " --output seantube_download ytsearch:" + '"' + input_str + '"'
 print(video_cmd_nourl)
-change_directory_to_temp = "cd ./static/temp/"
-os.system(change_directory_to_temp)
 
 # Functions
 def is_valid_url(url):
@@ -46,5 +44,5 @@ else:
         print("Mode: Video with url")
         os.system(video_cmd_url)
         
-os.system("mv seantube_* temp/")
-
+os.system("mv seantube_* static/temp/")
+exit

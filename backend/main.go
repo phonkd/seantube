@@ -7,149 +7,124 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
-	"html/template"
-"bufio"
-"os"
+"html/template"
 )
 
-type TemplateData struct {
-    Filename string
-}
+
+
+
 
 func main() {
-    http.HandleFunc("/", handler)
-    // Add other handlers if needed
+	http.HandleFunc("/", handler)
+	http.HandleFunc("/update-env", updateEnvHandler)
 
-    // Serve static files from the 'static' directory
-    fs := http.FileServer(http.Dir("./static"))
-    http.Handle("/static/", http.StripPrefix("/static", fs))
+	// Serve static files from the 'public' directory
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static", fs))
 
-    log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-    directoryPath := "./static/temp"
-    filePrefix := "seantube_download"
-
-    filename, err := getFileNameWithPrefix(directoryPath, filePrefix)
-
-    if err != nil {
-        // If no file is found with the given prefix, serve the regular index.html
-        http.ServeFile(w, r, "./static/index.html")
-    } else {
-        // If a file is found, render the template with the file name
-        tmpl, err := template.ParseFiles("./static/index_template.html")
+if r.URL.Path == "/" {
+        tempDir := "static/temp"
+        files, err := ioutil.ReadDir(tempDir)
         if err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
+            http.Error(w, "Error reading temp directory", http.StatusInternalServerError)
             return
         }
 
-        data := TemplateData{Filename: filename}
-        tmpl.Execute(w, data)
+        // Check if there's any file in the temp folder
+	var filename string
+        for _, file := range files {
+            if !file.IsDir() {
+                filename = file.Name()
+                break
+            }
+        }
+
+        if filename != "" {
+            // Serve the index_template page if a file is found in the temp folder
+            tmpl, err := template.ParseFiles("static/index_template.html")
+            if err != nil {
+                http.Error(w, "Error parsing template", http.StatusInternalServerError)
+                return
+            }
+
+            data := struct {
+                Filename string
+            }{
+                Filename: filename,
+            }
+
+            tmpl.Execute(w, data)
+        } else {
+            // Serve the regular index.html page if no file is found in the temp folder
+            http.ServeFile(w, r, "static/index.html")
+        }
+        return
     }
 }
-
 
 
 
 func updateEnvHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	url := r.FormValue("URL")
+	if url == "" {
+		http.Error(w, "URL is required", http.StatusBadRequest)
+		return
+
+	}
+
+	// Read the .env file
+	content, err := ioutil.ReadFile(".env")
+	if err != nil {
+		http.Error(w, "Error reading .env file", http.StatusInternalServerError)
+		return
+	}
+
+	// Find and update the URL variable
+	varName := "URL"
+    	lines := strings.Split(string(content), "\n")
+    	updated := false
+    	for i, line := range lines {
+        	if strings.HasPrefix(line, varName+"=") {
+            	lines[i] = fmt.Sprintf("%s=\"%s\"", varName, url) // Add double quotes around the URL value
+            	updated = true
+            	break
+        	}
     }
 
-    url := r.FormValue("URL")
-    if url == "" {
-        http.Error(w, "URL is required", http.StatusBadRequest)
-        return
-    }
-
-    err := updateEnvVariable("URL", url)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-
-    cmd := exec.Command("python3", "your_script.py")
-    cmd.Stdout = os.Stdout
-    cmd.Stderr = os.Stderr
-    err = cmd.Run()
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-
-    fmt.Fprint(w, "Python script executed successfully")
-}
-
-func updateEnvVariable(variableName, variableValue string) error {
-    inputFile, err := os.Open(".env")
-    if err != nil {
-        return err
-    }
-    defer inputFile.Close()
-
-    outputFile, err := os.Create(".env_temp")
-    if err != nil {
-        return err
-    }
-    defer outputFile.Close()
-
-    scanner := bufio.NewScanner(inputFile)
-    updated := false
-
-    for scanner.Scan() {
-        line := scanner.Text()
-        if strings.HasPrefix(line, variableName+"=") {
-            _, err = outputFile.WriteString(variableName + "=" + variableValue + "\n")
-            updated = true
-        } else {
-            _, err = outputFile.WriteString(line + "\n")
-        }
-
-        if err != nil {
-            return err
-        }
-    }
-
+    // If the URL variable was not found, append it to the file
     if !updated {
-        _, err = outputFile.WriteString(variableName + "=" + variableValue + "\n")
-        if err != nil {
-            return err
-        }
+        lines = append(lines, fmt.Sprintf("%s=\"%s\"", varName, url)) // Add double quotes around the URL value
     }
 
-    err = inputFile.Close()
-    if err != nil {
-        return err
-    }
+	// Write the updated content to the .env file
+	err = ioutil.WriteFile(".env", []byte(strings.Join(lines, "\n")), 0644)
+	if err != nil {
+		http.Error(w, "Error updating .env file", http.StatusInternalServerError)
+		return
+	}
 
-    err = outputFile.Close()
-    if err != nil {
-        return err
-    }
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "Updated .env file successfully")
+	// Run the Python script
+	cmd := exec.Command("python", "main.py")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error running Python script: %v\nOutput: %s", err, output), http.StatusInternalServerError)
+		return
+	}
 
-    return os.Rename(".env_temp", ".env")
+	// Send the script output to the client
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Updated .env file successfully\n\nPython script output:\n%s", output)
 }
-
-
-
-
-
-func getFileNameWithPrefix(directoryPath string, prefix string) (string, error) {
-    files, err := ioutil.ReadDir(directoryPath)
-    if err != nil {
-        return "", err
-    }
-
-    for _, file := range files {
-        if !file.IsDir() && strings.HasPrefix(file.Name(), prefix) {
-            return file.Name(), nil
-        }
-    }
-
-    return "", fmt.Errorf("no file found with prefix: %s", prefix)
-}
-
 
 
