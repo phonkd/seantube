@@ -36,13 +36,17 @@ def is_valid_url(url):
 is_url = is_valid_url(input_str) # Check if the input string is a url or just some keywords
 if (audio == True):
     if (is_url == False):
+        print("Mode: Audio without url")
         os.system(audio_cmd_nourl)
     else:
+        print("Mode: Audio with url")
         os.system(audio_cmd_url)
 else:
     if (is_url == False):
+        print("Mode: Video without url")
         os.system(video_cmd_nourl)
     else:
+        print("Mode: Video with url")
         os.system(video_cmd_url)
         
 
