@@ -8,6 +8,10 @@ import (
 	"os/exec"
 	"strings"
 "html/template"
+"github.com/joho/godotenv"
+"path/filepath"
+"net/url"
+"os"
 )
 
 
@@ -116,12 +120,13 @@ func updateEnvHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 w.WriteHeader(http.StatusOK)
-    cmd := exec.Command("python", "main.py")
-    output, err := cmd.CombinedOutput()
-    if err != nil {
-        http.Error(w, fmt.Sprintf("Error running Python script: %v\nOutput: %s", err, output), http.StatusInternalServerError)
-        return
-    }
+err = downloadMedia()
+
+	if err != nil {
+
+		http.Error(w, fmt.Sprintf("Error downloading media: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 fmt.Fprint(w, `
 <!DOCTYPE html>
@@ -132,7 +137,6 @@ fmt.Fprint(w, `
 </head>
 <body>
     <h1>Updated .env file successfully</h1>
-    <pre>` + fmt.Sprintf("Python script output:\n%s", output) + `</pre>
     <p>Redirecting to the home page in 10 seconds...</p>
     <script>
         setTimeout(function(){
@@ -146,3 +150,105 @@ fmt.Fprint(w, `
 }
 
 
+
+func downloadMedia() error {
+
+	_ = godotenv.Load()
+
+
+
+	inputStr := os.Getenv("URL")
+
+	audio := os.Getenv("AUDIO")
+
+	audioFormat := os.Getenv("AUDIO_FORMAT")
+
+	videoFormat := os.Getenv("VIDEO_FORMAT")
+
+
+
+	videoCmdURL := "yt-dlp --recode-video " + videoFormat + " --output seantube_download " + inputStr
+
+	videoCmdNoURL := "yt-dlp --recode-video " + videoFormat + " --output seantube_download ytsearch:" + `"` + inputStr + `"`
+
+	audioCmdURL := "yt-dlp -x --audio-format " + audioFormat + " --output seantube_download " + inputStr
+
+	audioCmdNoURL := "yt-dlp -x --audio-format " + audioFormat + " --output seantube_download ytsearch:" + `"` + inputStr + `"`
+
+	fmt.Println(videoCmdNoURL)
+
+
+
+	isURL := isValidURL(inputStr)
+
+
+
+	if audio == "True" {
+
+		if !isURL {
+
+			fmt.Println("Mode: Audio without url")
+
+			exec.Command("sh", "-c", audioCmdNoURL).Run()
+
+		} else {
+
+			fmt.Println("Mode: Audio with url")
+
+			exec.Command("sh", "-c", audioCmdURL).Run()
+
+		}
+
+	} else {
+
+		if !isURL {
+
+			fmt.Println("Mode: Video without url")
+
+			exec.Command("sh", "-c", videoCmdNoURL).Run()
+
+		} else {
+
+			fmt.Println("Mode: Video with url")
+
+			exec.Command("sh", "-c", videoCmdURL).Run()
+
+		}
+
+	}
+
+
+
+	matches, _ := filepath.Glob("seantube_*")
+
+	for _, match := range matches {
+
+		os.Rename(match, filepath.Join("static/temp/", filepath.Base(match)))
+
+	}
+	err := godotenv.Load()
+
+	if err != nil {
+
+		return fmt.Errorf("error loading .env file: %v", err)
+
+	}
+	return nil
+
+}
+
+
+
+func isValidURL(input string) bool {
+
+	u, err := url.Parse(input)
+
+	if err != nil {
+
+		return false
+
+	}
+
+	return u.Scheme != "" && u.Host != ""
+
+}
