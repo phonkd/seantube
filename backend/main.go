@@ -1,3 +1,4 @@
+
 package main
 
 import (
@@ -12,13 +13,14 @@ import (
 "path/filepath"
 "net/url"
 "os"
+"embed"
 )
-
-
-
+var envFile embed.FS
+var staticTempContent embed.FS
 
 
 func main() {
+
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/update-env", updateEnvHandler)
 	// Serve static files from the 'public' directory
@@ -34,7 +36,7 @@ w.Header().Set("Pragma", "no-cache")
 w.Header().Set("Expires", "0")
 
 
-if r.URL.Path == "/" {
+if r.URL.Path == "/download1" {
         tempDir := "static/temp"
         files, err := ioutil.ReadDir(tempDir)
         if err != nil {
@@ -72,8 +74,41 @@ if r.URL.Path == "/" {
         }
         return
     }
-}
 
+if r.URL.Path =="/download2" {
+tempDir := "static/temp"
+        files, err := ioutil.ReadDir(tempDir)
+        if err != nil {
+            http.Error(w, "Error reading temp directory", http.StatusInternalServerError)
+            return
+        }
+
+var filename string
+        for _, file := range files {
+            if !file.IsDir() {
+                filename = file.Name()
+                break
+            }
+        }
+
+        if filename != "" {
+            // Serve the index_template page if a file is found in the temp folder
+            tmpl, err := template.ParseFiles("static/index_template.html")
+            if err != nil {
+                http.Error(w, "Error parsing template", http.StatusInternalServerError)
+                return
+            }
+
+            data := struct {
+                Filename string
+            }{
+                Filename: filename,
+            }
+
+            tmpl.Execute(w, data)
+        }
+}
+}
 
 
 func updateEnvHandler(w http.ResponseWriter, r *http.Request) {
@@ -128,24 +163,6 @@ err = downloadMedia()
 		return
 	}
 
-fmt.Fprint(w, `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Updating Environment</title>
-</head>
-<body>
-    <h1>Updated .env file successfully</h1>
-    <p>Redirecting to the home page in 10 seconds...</p>
-    <script>
-        setTimeout(function(){
-            window.location.href = "/";
-        }, 10000);
-    </script>
-</body>
-</html>
-`)
 
 }
 
@@ -233,11 +250,53 @@ func downloadMedia() error {
 		return fmt.Errorf("error loading .env file: %v", err)
 
 	}
+serve_files()
 	return nil
 
 }
 
+func serve_files() {
+folderToServe := "./static/temp" // Replace with the path to your folder
 
+
+
+	// Create a file server to serve files from the specified folder
+
+	fileServer := http.FileServer(http.Dir(folderToServe))
+
+
+
+	// Register the file server with the desired route
+
+	http.Handle("/dll", fileServer)
+
+
+
+	// Set the listening address and port for the server
+
+	address := "localhost"
+
+	port := "8080"
+
+
+
+	fmt.Printf("Serving files from folder: %s\n", folderToServe)
+
+	fmt.Printf("Server listening on http://%s:%s\n", address, port)
+
+
+
+	// Start the server
+
+	err := http.ListenAndServe(address+":"+port, nil)
+
+	if err != nil {
+
+		fmt.Println("Error starting server:", err)
+
+	}
+
+}
 
 func isValidURL(input string) bool {
 
@@ -252,3 +311,4 @@ func isValidURL(input string) bool {
 	return u.Scheme != "" && u.Host != ""
 
 }
+
